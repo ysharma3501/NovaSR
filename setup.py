@@ -13,6 +13,9 @@ setup(
     install_requires=[
         'soxr',
         'timm',
+        'torchaudio',
+        'torch',
+        'torchcodec',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
