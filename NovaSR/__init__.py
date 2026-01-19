@@ -1,13 +1,19 @@
-import torch
 import os
+import torch
 import torchaudio
+import librosa
+import numpy as np
 from .speechsr import SynthesizerTrn
 from torch.nn.utils import weight_norm
 
 class FastSR:
-    def __init__(self, ckpt_path=None, half=True):
-        
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    def __init__(self, ckpt_path=None, half=True, device='cpu'):
+        if device == 'cpu':
+            os.environ['CUDA_VISIBLE_DEVICES'] = ''
+            os.environ['HIP_VISIBLE_DEVICES'] = ''
+            self.device = torch.device('cpu')
+        else:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.hps = {
             "train": {
                 "segment_size": 9600
@@ -42,16 +48,16 @@ class FastSR:
             **self.hps['model']
         ).to(self.device)
         assert os.path.isfile(ckpt_path)
-        checkpoint_dict = torch.load(ckpt_path, map_location='cpu')
+        checkpoint_dict = torch.load(ckpt_path, map_location=self.device)
         model.dec.remove_weight_norm()
         model.load_state_dict(checkpoint_dict, strict=True)
         model.eval()
         return model
 
     def load_audio(self, audio_file):
-        audio, sample_rate = torchaudio.load(audio_file)
-        audio = audio[:1, :]
-        lowres_wav = torchaudio.functional.resample(audio, sample_rate, 16000, resampling_method="kaiser_window").unsqueeze(1).to(self.device)
+        audio, sample_rate = librosa.load(audio_file, sr=None, mono=True)
+        audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
+        lowres_wav = torch.from_numpy(audio).float().unsqueeze(0).unsqueeze(1).to(self.device)
         if self.half == True:
             lowres_wav = lowres_wav.half()
         return lowres_wav
