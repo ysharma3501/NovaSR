@@ -87,6 +87,56 @@ highres_audio = upsampler.infer(lowres_audio).cpu()
 
 display(Audio(highres_audio, rate=48000))
 ```
+### MiniMax TTS Integration
+
+NovaSR pairs naturally with [MiniMax TTS](https://platform.minimax.io/docs/api-reference/speech-t2a-http) to build a high-quality, low-cost text-to-speech pipeline — MiniMax generates the speech, NovaSR enhances it to 48 kHz with near-zero overhead.
+
+**Install extra dependency:**
+```
+pip install requests
+```
+
+**Generate and enhance in one call:**
+```python
+from NovaSR import FastSR
+from NovaSR.minimax_tts import generate_and_enhance
+import torchaudio
+import os
+
+os.environ["MINIMAX_API_KEY"] = "your_minimax_api_key"
+
+upsampler = FastSR()
+enhanced = generate_and_enhance("Hello, world!", upsampler=upsampler)
+torchaudio.save("enhanced.wav", enhanced.cpu(), 48000)
+```
+
+**Or call the steps separately:**
+```python
+from NovaSR.minimax_tts import generate_speech, MINIMAX_TTS_VOICES
+
+# Step 1 — generate MP3 bytes from MiniMax TTS
+audio_bytes = generate_speech(
+    "Hello, world!",
+    api_key="your_minimax_api_key",
+    voice="English_Graceful_Lady",   # see MINIMAX_TTS_VOICES for all options
+    model="speech-2.8-hd",           # or "speech-2.8-turbo" for faster synthesis
+)
+
+# Step 2 — save and enhance with NovaSR
+with open("tts_output.mp3", "wb") as f:
+    f.write(audio_bytes)
+
+from NovaSR import FastSR
+upsampler = FastSR()
+lowres = upsampler.load_audio("tts_output.mp3")
+highres = upsampler.infer(lowres).cpu()
+
+import torchaudio
+torchaudio.save("enhanced.wav", highres, 48000)
+```
+
+Available voices: `MINIMAX_TTS_VOICES` (`English_Graceful_Lady`, `English_Insightful_Speaker`, `English_radiant_girl`, `English_Persuasive_Man`, `English_Lucky_Robot`, `English_expressive_narrator`).
+
 ### Training
 
 Please check out the kaggle notebook for training the model further on custom datasets: https://www.kaggle.com/code/yatharthsharma888/novasr-training
